@@ -8,14 +8,12 @@ A multi-tool AI agent that helps you find secondhand pieces and figure out how t
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-pip install openai
 ```
 
-This project uses [Ollama](https://ollama.com) for local LLM inference — no API key required.
+This project uses [Groq](https://console.groq.com) for LLM inference (free tier). Create a `.env` file in the project root:
 
-```bash
-# Install Ollama, then pull the model
-ollama pull llama3.1
+```
+GROQ_API_KEY=your_key_here
 ```
 
 Run the app:
@@ -226,7 +224,7 @@ After each completed interaction, the agent saves the selected item's `style_tag
 Writing the planning loop section of `planning.md` with explicit conditional branches ("if `search_results` is empty, set error and return — do NOT proceed") made it impossible to accidentally write a loop that calls all three tools unconditionally. The spec forced me to think about the no-results path before writing any code, which meant the early-exit logic was built in from the start rather than added as an afterthought.
 
 **One divergence and why:**
-The spec assumed Groq as the LLM provider. During implementation the Groq API key was invalid, so I switched to Ollama (local, OpenAI-compatible). Because the code used the OpenAI-compatible interface pattern throughout, the actual change was minimal: swap `from groq import Groq` for `from openai import OpenAI`, point `base_url` at `http://localhost:11434/v1`, and change the model name from `llama-3.3-70b-versatile` to `llama3.1`. No tool logic changed. The `_get_client()` helper function isolated the provider detail so it only needed to change in one place per file.
+The spec assumed Groq as the LLM provider. During initial implementation the Groq API key was temporarily invalid, so I briefly switched to Ollama (local, OpenAI-compatible) to unblock development. Because `_get_client()` isolates the provider in one place per file, switching only required changing two lines (import + client init) and the model name — no tool logic changed. Once a valid Groq key was available the code was switched back to Groq (`llama-3.3-70b-versatile`), which is faster and matches the original spec.
 
 ---
 
