@@ -18,7 +18,7 @@ import os
 import re
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from groq import Groq
 
 from utils.data_loader import load_listings
 
@@ -27,14 +27,17 @@ _TRENDS_PATH = os.path.join(os.path.dirname(__file__), "data", "trends.json")
 
 load_dotenv()
 
-_OLLAMA_MODEL = "llama3.1"
+_GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
-# ── Ollama client ─────────────────────────────────────────────────────────────
+# ── Groq client ───────────────────────────────────────────────────────────────
 
-def _get_client() -> OpenAI:
-    """Return an OpenAI-compatible client pointed at the local Ollama server."""
-    return OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+def _get_client() -> Groq:
+    """Return a Groq client using GROQ_API_KEY from .env."""
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("GROQ_API_KEY not set. Add it to a .env file.")
+    return Groq(api_key=api_key)
 
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
@@ -181,7 +184,7 @@ def suggest_outfit(
             )
 
         response = client.chat.completions.create(
-            model=_OLLAMA_MODEL,
+            model=_GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.8,
             max_tokens=400,
@@ -240,7 +243,7 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         )
 
         response = client.chat.completions.create(
-            model=_OLLAMA_MODEL,
+            model=_GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=1.1,
             max_tokens=150,

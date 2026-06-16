@@ -23,7 +23,7 @@ import os
 import re
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from groq import Groq
 
 from tools import (
     compare_price,
@@ -35,11 +35,14 @@ from tools import (
     suggest_outfit,
 )
 
-_OLLAMA_MODEL = "llama3.1"
+_GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
-def _get_client() -> OpenAI:
-    return OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+def _get_client() -> Groq:
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("GROQ_API_KEY not set.")
+    return Groq(api_key=api_key)
 
 load_dotenv()
 
@@ -96,7 +99,7 @@ def _parse_query(query: str) -> dict:
 
     try:
         response = client.chat.completions.create(
-            model=_OLLAMA_MODEL,
+            model=_GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
             max_tokens=100,
