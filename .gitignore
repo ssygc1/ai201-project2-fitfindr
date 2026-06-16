@@ -14,3 +14,6 @@ env/
 
 # macOS
 .DS_Store
+
+# Runtime-generated user data
+data/style_profile.json
