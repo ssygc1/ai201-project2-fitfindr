@@ -20,38 +20,32 @@ from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
 
 # ── query handler ─────────────────────────────────────────────────────────────
 
-def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
+def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str, str]:
     """
     Called by Gradio when the user submits a query.
 
-    Args:
-        user_query:     The text the user typed into the search box.
-        wardrobe_choice: Either "Example wardrobe" or "Empty wardrobe (new user)".
-
-    Returns:
-        A tuple of three strings:
-            (listing_text, outfit_suggestion, fit_card)
-        Each string maps to one of the three output panels in the UI.
+    Returns a tuple of four strings:
+        (listing_text, outfit_suggestion, fit_card, price_trend_text)
     """
-    # Step 1: Guard against empty query
+    # Guard against empty query
     if not user_query or not user_query.strip():
-        return "Please enter a search query.", "", ""
+        return "Please enter a search query.", "", "", ""
 
-    # Step 2: Select wardrobe
     wardrobe = (
         get_example_wardrobe() if wardrobe_choice == "Example wardrobe" else get_empty_wardrobe()
     )
 
-    # Step 3: Run the agent
     session = run_agent(user_query.strip(), wardrobe)
 
-    # Step 4: Error path — show error in first panel, leave others blank
     if session["error"]:
-        return session["error"], "", ""
+        return session["error"], "", "", ""
 
-    # Step 5: Format listing and return all three panels
     item = session["selected_item"]
+
+    # Panel 1: listing details + retry note if search was loosened
+    retry_banner = f"⚠️ {session['retry_note']}\n\n" if session.get("retry_note") else ""
     listing_text = (
+        f"{retry_banner}"
         f"{item['title']}\n"
         f"Price:     ${item['price']:.2f}\n"
         f"Platform:  {item['platform']}\n"
@@ -62,7 +56,23 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
         f"{item['description']}"
     )
 
-    return listing_text, session["outfit_suggestion"], session["fit_card"]
+    # Panel 4: price comparison + trend report
+    price_trend_lines = []
+    pc = session.get("price_comparison")
+    if pc and pc["assessment"] != "unknown":
+        emoji = {"great deal": "🟢", "fair price": "🟡", "above average": "🔴"}.get(pc["assessment"], "⚪")
+        price_trend_lines.append(f"Price: {emoji} {pc['assessment'].upper()}")
+        price_trend_lines.append(pc["reasoning"])
+        price_trend_lines.append("")
+
+    tr = session.get("trend_report")
+    if tr:
+        price_trend_lines.append("Trend:")
+        price_trend_lines.append(tr["trend_summary"])
+
+    price_trend_text = "\n".join(price_trend_lines) if price_trend_lines else "No price/trend data."
+
+    return listing_text, session["outfit_suggestion"], session["fit_card"], price_trend_text
 
 
 # ── interface ─────────────────────────────────────────────────────────────────
@@ -115,6 +125,11 @@ Describe what you're looking for — include size and price if you want to filte
                 lines=8,
                 interactive=False,
             )
+            pricetend_output = gr.Textbox(
+                label="💰 Price & Trends",
+                lines=8,
+                interactive=False,
+            )
 
         gr.Examples(
             examples=[[q, "Example wardrobe"] for q in EXAMPLE_QUERIES],
@@ -125,12 +140,12 @@ Describe what you're looking for — include size and price if you want to filte
         submit_btn.click(
             fn=handle_query,
             inputs=[query_input, wardrobe_choice],
-            outputs=[listing_output, outfit_output, fitcard_output],
+            outputs=[listing_output, outfit_output, fitcard_output, pricetend_output],
         )
         query_input.submit(
             fn=handle_query,
             inputs=[query_input, wardrobe_choice],
-            outputs=[listing_output, outfit_output, fitcard_output],
+            outputs=[listing_output, outfit_output, fitcard_output, pricetend_output],
         )
 
     return demo

@@ -152,6 +152,74 @@ Try: remove the size filter, or raise your budget, or use broader keywords.
 
 ---
 
+## Stretch Features
+
+### Retry Logic with Fallback (+1pt)
+
+When `search_listings` returns no results, the agent automatically retries with loosened constraints before giving up:
+
+1. **Retry 1** — drop the size filter (if one was specified). If this finds results, sets `session["retry_note"]` = `"No results for size XXS — showing results for any size instead."` The UI displays this as a warning banner above the listing.
+2. **Retry 2** — if still empty, drop the price ceiling too. Updates `session["retry_note"]` accordingly.
+3. **Final failure** — if still empty after both retries, sets `session["error"]` = `"No listings found for '...' even after loosening filters. Try different keywords."`
+
+**Demo:** Query `"vintage graphic tee size XXS under $50"` → size XXS finds nothing → retry without size → finds Y2K Baby Tee → retry note shown in panel 1.
+
+---
+
+### Price Comparison Tool (+2pts)
+
+**Function:** `compare_price(item: dict) -> dict`
+
+Compares the item's price against comparable listings in the dataset. Comparables are selected by: same `category` + at least one shared `style_tag`. Falls back to same category only if no style-matched comparables exist.
+
+**Returns:** `{assessment, reasoning, avg_comparable_price, comparable_count}`
+
+- `assessment`: `"great deal"` (≥20% below avg), `"fair price"` (within 10% of avg), or `"above average"` (>10% above avg)
+- `reasoning`: specific sentence with dollar amounts and percentage diff
+
+**Example output for Graphic Tee at $24:**
+```
+Price: 🔴 ABOVE AVERAGE
+At $24.00, this is 16% above the average $20.73 across 11 comparable tops 
+listings (matched by category + style). Worth negotiating if the platform allows offers.
+```
+
+Shown in the **💰 Price & Trends** panel in the UI.
+
+---
+
+### Trend Awareness Tool (+2pts)
+
+**Function:** `get_trend_report(style_tags: list[str]) -> dict`
+
+Checks the item's style tags against a mock seasonal trend dataset (`data/trends.json`) that simulates a fashion platform API response. The dataset includes 12 trending styles with momentum ratings (`rising`, `peak`, `declining`) and season-specific notes.
+
+**Returns:** `{trending_styles, item_trending_tags, trend_summary, momentum}`
+
+The `trend_summary` string is passed directly into the `suggest_outfit` prompt, so the LLM's outfit suggestion reflects what's currently on-trend. For example, if an item has `"grunge"` and `"graphic tee"` tags (both `rising` in Spring/Summer 2025), the outfit prompt includes: *"This item's style is on-trend right now — graphic tee, grunge (rising) for Spring/Summer 2025."*
+
+**Data source:** `data/trends.json` — mock data modelled after a seasonal trend report. In production this would be fetched from a real fashion API.
+
+Shown in the **💰 Price & Trends** panel alongside price comparison.
+
+---
+
+### Style Profile Memory (+2pts)
+
+**Functions:** `save_style_profile(item)`, `load_style_profile()`
+
+After each completed interaction, the agent saves the selected item's `style_tags`, `colors`, and `category` to `data/style_profile.json`. On the next interaction, the profile is loaded and passed into `suggest_outfit` as an extra context block.
+
+**Storage:** `data/style_profile.json` — a JSON file with `preferred_styles`, `preferred_colors`, `preferred_categories`, and `interaction_count`. Tags deduplicate on write.
+
+**How it influences suggestions:** When `interaction_count > 0`, the outfit prompt includes: *"The user's established style preferences (from previous sessions): they gravitate toward vintage, grunge, streetwear styles and tend to wear black, dark blue colors."* The LLM uses this to weight wardrobe piece selection toward the user's established taste.
+
+**Demo (two interactions):**
+1. First query: `"vintage graphic tee under $30"` → selects lst_006 (grunge, streetwear, vintage tags) → `style_profile.json` written with those tags, `interaction_count: 1`
+2. Second query: `"90s track jacket size M"` → `style_profile.json` loaded → outfit prompt includes the grunge/streetwear preference from session 1, influencing which wardrobe pieces are suggested
+
+---
+
 ## Spec Reflection
 
 **One way the spec helped:**

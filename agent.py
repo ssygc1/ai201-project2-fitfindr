@@ -25,7 +25,15 @@ import re
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from tools import create_fit_card, search_listings, suggest_outfit
+from tools import (
+    compare_price,
+    create_fit_card,
+    get_trend_report,
+    load_style_profile,
+    save_style_profile,
+    search_listings,
+    suggest_outfit,
+)
 
 _OLLAMA_MODEL = "llama3.1"
 
@@ -55,6 +63,9 @@ def _new_session(query: str, wardrobe: dict) -> dict:
         "outfit_suggestion": None,   # string returned by suggest_outfit
         "fit_card": None,            # string returned by create_fit_card
         "error": None,               # set if the interaction ended early
+        "retry_note": None,          # set if search was retried with looser constraints
+        "price_comparison": None,    # dict returned by compare_price
+        "trend_report": None,        # dict returned by get_trend_report
     }
 
 
@@ -131,8 +142,9 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         first — if it is not None, the interaction ended early and the other
         output fields (outfit_suggestion, fit_card) will be None.
     """
-    # Step 1: Initialize session
+    # Step 1: Initialize session + load persisted style profile
     session = _new_session(query, wardrobe)
+    style_profile = load_style_profile()
 
     # Step 2: Parse query → description, size, max_price
     try:
@@ -149,49 +161,62 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     size = parsed["size"]
     max_price = parsed["max_price"]
 
-    # Step 3: Search listings — branch on empty results
+    # Step 3: Search — with automatic retry fallback on empty results
     session["search_results"] = search_listings(description, size, max_price)
 
+    if not session["search_results"] and size is not None:
+        # Retry 1: drop size filter
+        session["search_results"] = search_listings(description, None, max_price)
+        if session["search_results"]:
+            session["retry_note"] = (
+                f"No results for size {size} — showing results for any size instead."
+            )
+            session["parsed"]["size"] = None
+            size = None
+
+    if not session["search_results"] and max_price is not None:
+        # Retry 2: drop price filter too
+        session["search_results"] = search_listings(description, size, None)
+        if session["search_results"]:
+            note = f"No results under ${max_price:.0f} — showing results at any price instead."
+            session["retry_note"] = (
+                (session["retry_note"] + " " + note) if session["retry_note"] else note
+            )
+            session["parsed"]["max_price"] = None
+
     if not session["search_results"]:
-        # Build a helpful, specific error message
-        filter_parts = []
-        if size:
-            filter_parts.append(f"size {size}")
-        if max_price is not None:
-            filter_parts.append(f"under ${max_price:.0f}")
-        filter_desc = " and ".join(filter_parts)
-        filter_hint = f" with {filter_desc}" if filter_desc else ""
-
-        suggestions = []
-        if size:
-            suggestions.append("remove the size filter")
-        if max_price is not None:
-            suggestions.append("raise your budget")
-        suggestions.append("use broader keywords")
-        suggestion_str = ", or ".join(suggestions)
-
         session["error"] = (
-            f"No listings found for '{description}'{filter_hint}. "
-            f"Try: {suggestion_str}."
+            f"No listings found for '{description}' even after loosening filters. "
+            f"Try different keywords."
         )
-        return session   # early exit — do NOT call suggest_outfit or create_fit_card
+        return session
 
     # Step 4: Select top result
     session["selected_item"] = session["search_results"][0]
 
-    # Step 5: Suggest outfit using selected item + wardrobe
+    # Step 5: Price comparison (stretch)
+    session["price_comparison"] = compare_price(session["selected_item"])
+
+    # Step 6: Trend report (stretch) — informs outfit suggestion
+    session["trend_report"] = get_trend_report(session["selected_item"]["style_tags"])
+
+    # Step 7: Suggest outfit — pass style profile + trend context
     session["outfit_suggestion"] = suggest_outfit(
         session["selected_item"],
         session["wardrobe"],
+        style_profile=style_profile,
+        trend_report=session["trend_report"],
     )
 
-    # Step 6: Create fit card using outfit suggestion + selected item
+    # Step 8: Create fit card
     session["fit_card"] = create_fit_card(
         session["outfit_suggestion"],
         session["selected_item"],
     )
 
-    # Step 7: Return completed session (error remains None)
+    # Step 9: Persist style profile for next session (stretch)
+    save_style_profile(session["selected_item"])
+
     return session
 
 

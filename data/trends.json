@@ -1,0 +1,67 @@
+{
+  "_source": "Mock fashion trend data simulating a seasonal trend API response. In production this would be fetched from a real fashion platform.",
+  "season": "Spring/Summer 2025",
+  "season_note": "Y2K revival and quiet luxury are the two dominant forces in thrift right now.",
+  "trending": [
+    {
+      "style": "y2k",
+      "momentum": "rising",
+      "notes": "Baby tees, low-rise cuts, butterfly and star motifs. Huge on Depop right now."
+    },
+    {
+      "style": "quiet luxury",
+      "momentum": "peak",
+      "notes": "Neutral tones, minimal branding, quality fabrics. Cashmere and silk doing numbers."
+    },
+    {
+      "style": "grunge",
+      "momentum": "rising",
+      "notes": "Flannel layering, combat boots, distressed denim. 90s band tees are the anchor piece."
+    },
+    {
+      "style": "streetwear",
+      "momentum": "stable",
+      "notes": "Oversized fits, graphic tees, chunky sneakers. A perennial — not going anywhere."
+    },
+    {
+      "style": "vintage",
+      "momentum": "stable",
+      "notes": "Authentic 90s and 00s pieces with real wear. Buyers can spot reproductions."
+    },
+    {
+      "style": "90s",
+      "momentum": "stable",
+      "notes": "Track jackets, windbreakers, color block. Champion and FILA moving fast."
+    },
+    {
+      "style": "athletic",
+      "momentum": "rising",
+      "notes": "Sports-inspired layering, track suits, zip-ups. Gorpcore adjacent."
+    },
+    {
+      "style": "cottagecore",
+      "momentum": "declining",
+      "notes": "Peaked last year. Florals and prairie still sell but slower than before."
+    },
+    {
+      "style": "graphic tee",
+      "momentum": "rising",
+      "notes": "Band tees and bootleg prints especially. The more faded, the better."
+    },
+    {
+      "style": "band tee",
+      "momentum": "rising",
+      "notes": "Authentic tour tees from the 90s-00s are fetching top dollar."
+    },
+    {
+      "style": "denim",
+      "momentum": "stable",
+      "notes": "Wide-leg and baggy silhouettes. Skinny is fully out of the thrift conversation."
+    },
+    {
+      "style": "minimal",
+      "momentum": "stable",
+      "notes": "Clean lines, earth tones, versatile basics. Easy sell at any price point."
+    }
+  ]
+}
